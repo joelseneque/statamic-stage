@@ -209,10 +209,15 @@ class GitOperations
             // Pull latest production changes
             $this->run([$this->gitBinary, 'pull', $remote, $productionBranch]);
         } else {
-            // Create local branch tracking the remote
+            // Create local branch from the remote tracking branch
             $this->run([
                 $this->gitBinary, 'checkout', '-b', $productionBranch,
-                '--track', "{$remote}/{$productionBranch}",
+                "{$remote}/{$productionBranch}",
+            ]);
+            // Set up tracking
+            $this->run([
+                $this->gitBinary, 'branch', '-u',
+                "{$remote}/{$productionBranch}", $productionBranch,
             ]);
         }
 
