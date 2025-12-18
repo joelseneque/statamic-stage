@@ -269,18 +269,24 @@ class GitOperations
     {
         $log = [];
 
-        // Step 1: Commit any uncommitted changes
-        if ($this->hasUncommittedChanges()) {
-            $message = $commitMessage ?? config('statamic-stage.commit_message', 'Content update from staging');
-            $this->commitChanges($message);
-            $log[] = "Committed pending changes: {$message}";
+        // Only commit and push local changes if we're in a local/development environment
+        // On staging servers (like Forge), we skip this and only merge what's on GitHub
+        $isLocalEnvironment = in_array(app()->environment(), ['local', 'development']);
+
+        if ($isLocalEnvironment) {
+            // Step 1: Commit any uncommitted changes
+            if ($this->hasUncommittedChanges()) {
+                $message = $commitMessage ?? config('statamic-stage.commit_message', 'Content update from staging');
+                $this->commitChanges($message);
+                $log[] = "Committed pending changes: {$message}";
+            }
+
+            // Step 2: Push to staging branch
+            $this->pushToStagingBranch();
+            $log[] = 'Pushed to staging branch';
         }
 
-        // Step 2: Push to staging branch
-        $this->pushToStagingBranch();
-        $log[] = 'Pushed to staging branch';
-
-        // Step 3: Merge staging to production
+        // Step 3: Merge staging to production (this merges origin/staging → origin/main)
         $this->mergeToProduction();
         $log[] = 'Merged staging to production and pushed';
 
