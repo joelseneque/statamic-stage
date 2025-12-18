@@ -1,0 +1,50 @@
+{
+    "name": "joelseneque/statamic-stage",
+    "description": "Staging to production workflow for Statamic with one-click push and read-only production mode",
+    "keywords": [
+        "statamic",
+        "staging",
+        "deployment",
+        "git",
+        "workflow"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Joel Seneque"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "statamic/cms": "^5.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "JoelSeneque\\StatamicStage\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "JoelSeneque\\StatamicStage\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "statamic": {
+            "name": "Statamic Stage",
+            "description": "Staging to production workflow with one-click push"
+        },
+        "laravel": {
+            "providers": [
+                "JoelSeneque\\StatamicStage\\ServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
