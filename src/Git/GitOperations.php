@@ -185,22 +185,64 @@ class GitOperations
     {
         $stagingBranch = config('statamic-stage.branches.staging', 'staging');
         $productionBranch = config('statamic-stage.branches.production', 'main');
-        $remote = config('statamic-stage.git.remote', 'origin');
 
-        // Fetch latest from remote (with explicit refspecs for Forge compatibility)
-        $this->run([
-            $this->gitBinary, 'fetch', $remote,
-            "+refs/heads/{$stagingBranch}:refs/remotes/{$remote}/{$stagingBranch}",
-            "+refs/heads/{$productionBranch}:refs/remotes/{$remote}/{$productionBranch}",
-        ]);
+        // Use GitHub API to merge staging into production
+        $githubToken = config('statamic-stage.github.token');
+        $githubRepo = config('statamic-stage.github.repo');
 
-        // Simple approach: Push the staging branch commit directly to production
-        // This is a fast-forward push that updates main to point to the same commit as staging
-        // Using refspec: origin/staging:refs/heads/main means "push what origin/staging points to, to main"
-        $this->run([
-            $this->gitBinary, 'push', $remote,
-            "{$remote}/{$stagingBranch}:refs/heads/{$productionBranch}",
-        ]);
+        if (empty($githubToken) || empty($githubRepo)) {
+            throw new GitOperationException(
+                'GitHub token and repo must be configured for merge operations',
+                'config check',
+                'Missing STATAMIC_STAGE_GITHUB_TOKEN or STATAMIC_STAGE_GITHUB_REPO in .env'
+            );
+        }
+
+        // GitHub API: Merge staging into main
+        // https://docs.github.com/en/rest/branches/branches#merge-a-branch
+        $url = "https://api.github.com/repos/{$githubRepo}/merges";
+
+        $response = \Illuminate\Support\Facades\Http::withToken($githubToken)
+            ->withHeaders([
+                'Accept' => 'application/vnd.github+json',
+                'X-GitHub-Api-Version' => '2022-11-28',
+            ])
+            ->post($url, [
+                'base' => $productionBranch,
+                'head' => $stagingBranch,
+                'commit_message' => $this->getMergeCommitMessage(),
+            ]);
+
+        if ($response->status() === 201) {
+            // Merge successful
+            \Illuminate\Support\Facades\Log::info('GitHub merge successful', [
+                'sha' => $response->json('sha'),
+            ]);
+
+            return;
+        }
+
+        if ($response->status() === 204) {
+            // No merge needed - branches already in sync
+            \Illuminate\Support\Facades\Log::info('GitHub merge: branches already in sync');
+
+            return;
+        }
+
+        if ($response->status() === 409) {
+            // Merge conflict
+            throw new GitConflictException(
+                'Merge conflict detected on GitHub',
+                $response->json('message') ?? 'Conflict'
+            );
+        }
+
+        // Other error
+        throw new GitOperationException(
+            'GitHub merge failed: '.$response->json('message'),
+            $url,
+            $response->body()
+        );
     }
 
     public function pushToProduction(?string $commitMessage = null): array

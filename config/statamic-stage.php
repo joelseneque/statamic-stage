@@ -66,6 +66,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | GitHub API Settings
+    |--------------------------------------------------------------------------
+    |
+    | Configure GitHub API access for merge operations. The token needs
+    | 'repo' scope to create merges. The repo should be in 'owner/repo' format.
+    |
+    | Create a token at: https://github.com/settings/tokens
+    | Required scope: repo (Full control of private repositories)
+    |
+    */
+
+    'github' => [
+        'token' => env('STATAMIC_STAGE_GITHUB_TOKEN'),
+        'repo' => env('STATAMIC_STAGE_GITHUB_REPO'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Track All Changes
     |--------------------------------------------------------------------------
     |
