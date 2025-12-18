@@ -4,12 +4,13 @@ A Statamic addon that provides a staging-to-production workflow with a one-click
 
 ## Features
 
-- **Push to Production Button** - One-click merge from staging branch to main/production branch
+- **Push to Production Button** - One-click merge from staging branch to main/production branch via GitHub API
 - **Read-Only Production Mode** - Prevents content editing on production environment
 - **Dashboard Widget** - Shows pending changes count with quick access to push
 - **Artisan Commands** - CLI commands for automation and scripting
 - **Permission System** - Role-based access control for the push feature
 - **Activity Logging** - All push attempts are logged
+- **Forge Compatible** - Works with Laravel Forge's release-based deployments
 
 ## Requirements
 
@@ -17,7 +18,7 @@ A Statamic addon that provides a staging-to-production workflow with a one-click
 - Statamic 5.0+
 - **Statamic Pro** (required for Git Automation on staging and multi-user support)
 - Git installed on the server
-- SSH keys or credentials configured for git push access
+- **GitHub Personal Access Token** (for merge operations via GitHub API)
 
 ## Installation
 
@@ -103,6 +104,10 @@ STATAMIC_GIT_PUSH=true
 
 # Optional: Use queue for commits (recommended)
 STATAMIC_GIT_QUEUE_CONNECTION=redis
+
+# GitHub API Configuration (REQUIRED for merge operations)
+STATAMIC_STAGE_GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
+STATAMIC_STAGE_GITHUB_REPO=your-username/your-repo
 ```
 
 #### Production Environment (`.env`)
@@ -116,7 +121,25 @@ STATAMIC_GIT_ENABLED=false
 STATAMIC_STAGE_READ_ONLY=true
 ```
 
-### 4. Configure Git User (Optional)
+### 4. Create a GitHub Personal Access Token
+
+The addon uses the GitHub API to merge branches, which avoids issues with Forge's release-based deployment structure.
+
+1. Go to https://github.com/settings/tokens
+2. Click **"Generate new token"** → **"Generate new token (classic)"**
+3. Give it a descriptive name (e.g., "Statamic Stage - My Site")
+4. Set expiration to **"No expiration"** (recommended) or choose a custom expiration
+5. Select the **`repo`** scope (Full control of private repositories)
+6. Click **"Generate token"**
+7. Copy the token immediately (you won't see it again)
+
+Add to your staging server's `.env`:
+```env
+STATAMIC_STAGE_GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
+STATAMIC_STAGE_GITHUB_REPO=your-username/your-repo
+```
+
+### 5. Configure Git User (Optional)
 
 Set the git user for commits made by the addon:
 
@@ -125,26 +148,11 @@ STATAMIC_STAGE_GIT_NAME="Statamic Stage"
 STATAMIC_STAGE_GIT_EMAIL="stage@yourdomain.com"
 ```
 
-### 5. Set Up Permissions
+### 6. Set Up Permissions
 
 1. Go to **Statamic CP → Users → Roles**
 2. Edit the role(s) that should have push access
 3. Enable the **"Push to Production"** permission under "Statamic Stage"
-
-### 6. Configure SSH Keys on Staging Server
-
-The staging server needs to be able to push to your git repository. On Laravel Forge:
-
-1. Go to your staging server in Forge
-2. Navigate to **SSH Keys**
-3. Copy the server's public key
-4. Add it as a deploy key (with write access) in your GitHub/GitLab/Bitbucket repository
-
-Alternatively, if using HTTPS:
-```bash
-# Store credentials (run on staging server)
-git config --global credential.helper store
-```
 
 ## Configuration
 
@@ -180,6 +188,12 @@ return [
         ],
     ],
 
+    // GitHub API settings (required for merge operations)
+    'github' => [
+        'token' => env('STATAMIC_STAGE_GITHUB_TOKEN'),
+        'repo' => env('STATAMIC_STAGE_GITHUB_REPO'),  // Format: owner/repo
+    ],
+
     // Paths to track for changes
     'tracked_paths' => [
         'content',
@@ -212,10 +226,9 @@ return [
 4. Click **"Push to Live Production"**
 
 The addon will:
-1. Commit any uncommitted changes on staging
-2. Push to the staging branch
-3. Merge staging into the production branch
-4. Push to trigger the production deployment
+1. On **local**: Commit any uncommitted changes and push to the staging branch
+2. Call the **GitHub API** to merge staging into the production branch
+3. GitHub triggers auto-deploy on your production server (via Forge webhook)
 
 ### Artisan Commands
 
@@ -276,33 +289,49 @@ Schedule::command('stage:push --force')
 
 ## Troubleshooting
 
-### "Merge conflict detected"
+### "GitHub token and repo must be configured"
 
-If you see this error, there are conflicting changes between staging and production branches. This usually happens if someone pushed directly to main.
+You're missing the required GitHub API configuration.
 
 **Resolution:**
-1. SSH into your staging server
-2. Manually resolve the conflict:
+Add to your `.env` file:
+```env
+STATAMIC_STAGE_GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
+STATAMIC_STAGE_GITHUB_REPO=your-username/your-repo
+```
+
+See [Create a GitHub Personal Access Token](#4-create-a-github-personal-access-token) for instructions.
+
+### "Merge conflict detected on GitHub"
+
+There are conflicting changes between staging and production branches. This usually happens if someone pushed directly to main.
+
+**Resolution:**
+1. Go to your GitHub repository
+2. Create a Pull Request from `staging` to `main`
+3. Resolve the conflicts in GitHub's interface
+4. Merge the PR
+5. Or resolve locally:
    ```bash
-   cd /path/to/site
    git fetch origin
    git checkout main
-   git merge staging
+   git merge origin/staging
    # Resolve conflicts
    git add .
    git commit
    git push origin main
-   git checkout staging
    ```
 
-### "Permission denied" on git push
+### "GitHub merge failed: Bad credentials"
 
-The server doesn't have write access to the repository.
+Your GitHub token is invalid or expired.
 
 **Resolution:**
-1. Ensure SSH keys are set up correctly
-2. Verify the deploy key has write access
-3. Test manually: `ssh -T git@github.com`
+1. Go to https://github.com/settings/tokens
+2. Check if your token is still valid
+3. If expired, generate a new token with `repo` scope
+4. Update your `.env` with the new token
+5. Clear config cache: `php artisan config:clear`
 
 ### Changes not appearing after push
 
