@@ -204,8 +204,8 @@ class GitOperations
         }
 
         if ($localBranchExists) {
-            // Checkout existing local branch
-            $this->run([$this->gitBinary, 'checkout', $productionBranch]);
+            // Checkout existing local branch (force to avoid stash issues with Forge symlinks)
+            $this->run([$this->gitBinary, 'checkout', '--force', $productionBranch]);
             // Reset to match remote (in case of any local differences)
             $this->run([
                 $this->gitBinary, 'reset', '--hard',
@@ -219,8 +219,8 @@ class GitOperations
                 $this->gitBinary, 'branch', $productionBranch,
                 "{$remote}/{$productionBranch}",
             ]);
-            // Now checkout the local branch
-            $this->run([$this->gitBinary, 'checkout', $productionBranch]);
+            // Now checkout the local branch (force to avoid stash issues with Forge symlinks)
+            $this->run([$this->gitBinary, 'checkout', '--force', $productionBranch]);
         }
 
         // Merge remote staging into production (use origin/staging to ensure we merge what's on GitHub)
@@ -243,8 +243,8 @@ class GitOperations
             if (! empty(trim($conflicts))) {
                 // Abort the merge
                 $this->run([$this->gitBinary, 'merge', '--abort']);
-                // Return to staging branch
-                $this->run([$this->gitBinary, 'checkout', $stagingBranch]);
+                // Return to staging branch (force to avoid stash issues with Forge symlinks)
+                $this->run([$this->gitBinary, 'checkout', '--force', $stagingBranch]);
 
                 throw new GitConflictException(
                     'Merge conflict detected',
@@ -252,8 +252,8 @@ class GitOperations
                 );
             }
 
-            // Return to staging branch before re-throwing
-            $this->run([$this->gitBinary, 'checkout', $stagingBranch]);
+            // Return to staging branch before re-throwing (force to avoid stash issues)
+            $this->run([$this->gitBinary, 'checkout', '--force', $stagingBranch]);
 
             throw $e;
         }
@@ -261,8 +261,8 @@ class GitOperations
         // Push to production
         $this->run([$this->gitBinary, 'push', $remote, $productionBranch]);
 
-        // Return to staging branch
-        $this->run([$this->gitBinary, 'checkout', $stagingBranch]);
+        // Return to staging branch (force to avoid stash issues with Forge symlinks)
+        $this->run([$this->gitBinary, 'checkout', '--force', $stagingBranch]);
     }
 
     public function pushToProduction(?string $commitMessage = null): array
