@@ -226,11 +226,17 @@
 document.getElementById('push-form').addEventListener('submit', async function(e) {
     e.preventDefault();
 
+    const button = document.getElementById('push-button');
+
+    // Check if button is disabled
+    if (button.disabled) {
+        return;
+    }
+
     if (!confirm('{{ __('statamic-stage::messages.push_confirm') }}')) {
         return;
     }
 
-    const button = document.getElementById('push-button');
     const status = document.getElementById('push-status');
     const result = document.getElementById('push-result');
     const commitMessage = document.getElementById('commit_message').value;
@@ -239,6 +245,8 @@ document.getElementById('push-form').addEventListener('submit', async function(e
     button.classList.add('opacity-50');
     status.classList.remove('hidden');
     result.classList.add('hidden');
+
+    console.log('Starting push to production...');
 
     try {
         const response = await fetch('{{ cp_route('utilities.stage.push') }}', {
@@ -253,7 +261,18 @@ document.getElementById('push-form').addEventListener('submit', async function(e
             })
         });
 
+        console.log('Response status:', response.status);
+
+        // Handle non-JSON responses (like HTML error pages)
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Non-JSON response:', text);
+            throw new Error('Server returned non-JSON response. Check Laravel logs for details.');
+        }
+
         const data = await response.json();
+        console.log('Response data:', data);
 
         result.classList.remove('hidden');
 
@@ -266,10 +285,11 @@ document.getElementById('push-form').addEventListener('submit', async function(e
                         </svg>
                         ${data.message}
                     </div>
+                    ${data.log ? `<div class="mt-2 text-sm text-green-700 dark:text-green-300"><ul class="list-disc pl-5">${data.log.map(l => `<li>${l}</li>`).join('')}</ul></div>` : ''}
                 </div>
             `;
             // Reload after success to update status
-            setTimeout(() => window.location.reload(), 2000);
+            setTimeout(() => window.location.reload(), 3000);
         } else {
             result.innerHTML = `
                 <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
@@ -277,17 +297,21 @@ document.getElementById('push-form').addEventListener('submit', async function(e
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                         </svg>
-                        ${data.message}
+                        ${data.message || 'Push failed'}
                     </div>
                 </div>
             `;
         }
     } catch (error) {
+        console.error('Push error:', error);
         result.classList.remove('hidden');
         result.innerHTML = `
             <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
                 <div class="text-red-800 dark:text-red-200">
-                    An error occurred. Please try again.
+                    <strong>Error:</strong> ${error.message || 'An error occurred. Please try again.'}
+                </div>
+                <div class="mt-2 text-sm text-red-700 dark:text-red-300">
+                    Check the browser console and Laravel logs for more details.
                 </div>
             </div>
         `;
