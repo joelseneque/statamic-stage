@@ -3,6 +3,7 @@
 namespace JoelSeneque\StatamicStage\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use JoelSeneque\StatamicStage\Events\PushToProductionCompleted;
 use JoelSeneque\StatamicStage\Events\PushToProductionFailed;
 use JoelSeneque\StatamicStage\Events\PushToProductionStarted;
@@ -33,6 +34,11 @@ class StageController extends CpController
 
     public function push(Request $request)
     {
+        Log::info('Stage push initiated', [
+            'user' => auth()->user()?->email(),
+            'commit_message' => $request->commit_message,
+        ]);
+
         abort_unless(auth()->user()?->can('push to production'), 403);
 
         $request->validate([
