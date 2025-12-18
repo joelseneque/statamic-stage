@@ -111,9 +111,13 @@ class GitOperations
 
         try {
             $this->run([$this->gitBinary, 'fetch', $remote]);
-        } catch (GitOperationException) {
-            // Silently fail - we'll use cached refs if fetch fails
-            // This allows the page to still load on local dev without SSH keys
+            \Illuminate\Support\Facades\Log::info('Git fetch successful');
+        } catch (GitOperationException $e) {
+            // Log the failure for debugging, but don't throw
+            \Illuminate\Support\Facades\Log::warning('Git fetch failed', [
+                'error' => $e->getMessage(),
+                'remote' => $remote,
+            ]);
         }
     }
 
