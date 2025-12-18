@@ -297,14 +297,19 @@ class GitOperations
         $productionBranch = config('statamic-stage.branches.production', 'main');
         $remote = config('statamic-stage.git.remote', 'origin');
 
+        $command = "{$remote}/{$productionBranch}..{$remote}/{$stagingBranch}";
+        \Illuminate\Support\Facades\Log::info('getPendingCommits command', ['range' => $command]);
+
         try {
             // Compare remote tracking branches
             $output = $this->run([
                 $this->gitBinary, 'log',
-                "{$remote}/{$productionBranch}..{$remote}/{$stagingBranch}",
+                $command,
                 '--oneline',
                 '--no-merges',
             ]);
+
+            \Illuminate\Support\Facades\Log::info('getPendingCommits output', ['output' => $output]);
 
             return collect(explode("\n", $output))
                 ->filter()
@@ -318,7 +323,12 @@ class GitOperations
                 })
                 ->values()
                 ->toArray();
-        } catch (GitOperationException) {
+        } catch (GitOperationException $e) {
+            \Illuminate\Support\Facades\Log::error('getPendingCommits failed', [
+                'error' => $e->getMessage(),
+                'range' => $command,
+            ]);
+
             return [];
         }
     }
