@@ -41,58 +41,85 @@
         </div>
     </div>
 
-    {{-- Status --}}
+    {{-- Pending Changes (Branch Diff) --}}
     <div class="mb-6">
-        <h2 class="font-bold text-lg mb-3 text-gray-800 dark:text-gray-100">Status</h2>
+        <h2 class="font-bold text-lg mb-3 text-gray-800 dark:text-gray-100">
+            {{ __('statamic-stage::messages.pending_changes') }}
+        </h2>
 
-        @if($hasChanges)
-            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
-                <div class="flex items-center gap-2 text-yellow-800 dark:text-yellow-200 font-medium mb-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                    </svg>
-                    {{ trans_choice('statamic-stage::messages.status_changes', $status['counts']['total'], ['count' => $status['counts']['total']]) }}
-                </div>
-
-                <div class="flex gap-4 text-sm">
-                    @if($status['counts']['added'] > 0)
-                        <span class="text-green-600 dark:text-green-400">
-                            +{{ $status['counts']['added'] }} {{ __('statamic-stage::messages.added') }}
-                        </span>
-                    @endif
-                    @if($status['counts']['modified'] > 0)
-                        <span class="text-yellow-600 dark:text-yellow-400">
-                            ~{{ $status['counts']['modified'] }} {{ __('statamic-stage::messages.modified') }}
-                        </span>
-                    @endif
-                    @if($status['counts']['deleted'] > 0)
-                        <span class="text-red-600 dark:text-red-400">
-                            -{{ $status['counts']['deleted'] }} {{ __('statamic-stage::messages.deleted') }}
-                        </span>
-                    @endif
-                </div>
-            </div>
-
-            {{-- File List --}}
-            @if(!empty($status['files']))
-                <div class="bg-gray-50 dark:bg-dark-700 rounded-lg p-4 mb-4 max-h-64 overflow-y-auto">
-                    <div class="font-mono text-sm space-y-1">
-                        @foreach($status['files'] as $file)
-                            <div class="flex items-center gap-2">
-                                @if($file['type'] === 'added')
-                                    <span class="text-green-600 dark:text-green-400 w-4">A</span>
-                                @elseif($file['type'] === 'modified')
-                                    <span class="text-yellow-600 dark:text-yellow-400 w-4">M</span>
-                                @elseif($file['type'] === 'deleted')
-                                    <span class="text-red-600 dark:text-red-400 w-4">D</span>
-                                @else
-                                    <span class="text-gray-500 w-4">?</span>
-                                @endif
-                                <span class="text-gray-700 dark:text-gray-300">{{ $file['file'] }}</span>
+        @if($hasPendingCommits || $branchDiff['counts']['total'] > 0)
+            {{-- Pending Commits --}}
+            @if(count($pendingCommits) > 0)
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                    <div class="flex items-center gap-2 text-blue-800 dark:text-blue-200 font-medium mb-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" />
+                        </svg>
+                        {{ trans_choice('statamic-stage::messages.pending_commits_count', count($pendingCommits), ['count' => count($pendingCommits)]) }}
+                    </div>
+                    <div class="space-y-1 mt-3">
+                        @foreach($pendingCommits as $commit)
+                            <div class="flex items-center gap-2 text-sm">
+                                <code class="bg-blue-100 dark:bg-blue-800/50 px-2 py-0.5 rounded text-xs font-mono">
+                                    {{ $commit['hash'] }}
+                                </code>
+                                <span class="text-gray-700 dark:text-gray-300">{{ $commit['message'] }}</span>
                             </div>
                         @endforeach
                     </div>
                 </div>
+            @endif
+
+            {{-- File Changes --}}
+            @if($branchDiff['counts']['total'] > 0)
+                <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
+                    <div class="flex items-center gap-2 text-yellow-800 dark:text-yellow-200 font-medium mb-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd" />
+                        </svg>
+                        {{ trans_choice('statamic-stage::messages.files_changed', $branchDiff['counts']['total'], ['count' => $branchDiff['counts']['total']]) }}
+                    </div>
+
+                    <div class="flex gap-4 text-sm">
+                        @if($branchDiff['counts']['added'] > 0)
+                            <span class="text-green-600 dark:text-green-400">
+                                +{{ $branchDiff['counts']['added'] }} {{ __('statamic-stage::messages.added') }}
+                            </span>
+                        @endif
+                        @if($branchDiff['counts']['modified'] > 0)
+                            <span class="text-yellow-600 dark:text-yellow-400">
+                                ~{{ $branchDiff['counts']['modified'] }} {{ __('statamic-stage::messages.modified') }}
+                            </span>
+                        @endif
+                        @if($branchDiff['counts']['deleted'] > 0)
+                            <span class="text-red-600 dark:text-red-400">
+                                -{{ $branchDiff['counts']['deleted'] }} {{ __('statamic-stage::messages.deleted') }}
+                            </span>
+                        @endif
+                    </div>
+                </div>
+
+                {{-- File List --}}
+                @if(!empty($branchDiff['files']))
+                    <div class="bg-gray-50 dark:bg-dark-700 rounded-lg p-4 mb-4 max-h-64 overflow-y-auto">
+                        <div class="font-mono text-sm space-y-1">
+                            @foreach($branchDiff['files'] as $file)
+                                <div class="flex items-center gap-2">
+                                    @if($file['type'] === 'added')
+                                        <span class="text-green-600 dark:text-green-400 w-4">A</span>
+                                    @elseif($file['type'] === 'modified')
+                                        <span class="text-yellow-600 dark:text-yellow-400 w-4">M</span>
+                                    @elseif($file['type'] === 'deleted')
+                                        <span class="text-red-600 dark:text-red-400 w-4">D</span>
+                                    @else
+                                        <span class="text-gray-500 w-4">?</span>
+                                    @endif
+                                    <span class="text-gray-700 dark:text-gray-300">{{ $file['file'] }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
             @endif
         @else
             <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
@@ -100,11 +127,31 @@
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                     </svg>
-                    {{ __('statamic-stage::messages.status_clean') }}
+                    {{ __('statamic-stage::messages.branches_in_sync') }}
                 </div>
             </div>
         @endif
     </div>
+
+    {{-- Uncommitted Local Changes --}}
+    @if($hasUncommittedChanges)
+        <div class="mb-6">
+            <h2 class="font-bold text-lg mb-3 text-gray-800 dark:text-gray-100">
+                {{ __('statamic-stage::messages.uncommitted_changes') }}
+            </h2>
+            <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                <div class="flex items-center gap-2 text-orange-800 dark:text-orange-200 font-medium mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    {{ trans_choice('statamic-stage::messages.status_changes', $status['counts']['total'], ['count' => $status['counts']['total']]) }}
+                </div>
+                <p class="text-sm text-orange-700 dark:text-orange-300">
+                    {{ __('statamic-stage::messages.uncommitted_will_be_committed') }}
+                </p>
+            </div>
+        </div>
+    @endif
 
     {{-- Push Form --}}
     <form id="push-form" class="border-t border-gray-200 dark:border-dark-600 pt-6">
@@ -127,6 +174,7 @@
                 type="submit"
                 class="btn-primary flex items-center gap-2"
                 id="push-button"
+                @if(!$hasPendingCommits && !$hasUncommittedChanges) disabled @endif
             >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="4"/>
@@ -139,6 +187,12 @@
             <div id="push-status" class="text-sm text-gray-500 dark:text-gray-400 hidden">
                 {{ __('statamic-stage::messages.push_in_progress') }}
             </div>
+
+            @if(!$hasPendingCommits && !$hasUncommittedChanges)
+                <span class="text-sm text-gray-500 dark:text-gray-400">
+                    {{ __('statamic-stage::messages.nothing_to_push') }}
+                </span>
+            @endif
         </div>
     </form>
 

@@ -33,4 +33,19 @@ class Stage
         // Return recent git log entries for merge commits
         return $this->git->getRecentMergeCommits();
     }
+
+    public function getPendingCommits(): array
+    {
+        return $this->git->getPendingCommits();
+    }
+
+    public function hasPendingCommits(): bool
+    {
+        return $this->git->hasPendingCommits();
+    }
+
+    public function getBranchDiff(): array
+    {
+        return $this->git->getBranchDiff();
+    }
 }

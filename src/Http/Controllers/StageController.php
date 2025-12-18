@@ -19,7 +19,10 @@ class StageController extends CpController
         return view('statamic-stage::utilities.stage', [
             'status' => Stage::getStatus(),
             'currentBranch' => Stage::getCurrentBranch(),
-            'hasChanges' => Stage::hasUncommittedChanges(),
+            'hasUncommittedChanges' => Stage::hasUncommittedChanges(),
+            'pendingCommits' => Stage::getPendingCommits(),
+            'branchDiff' => Stage::getBranchDiff(),
+            'hasPendingCommits' => Stage::hasPendingCommits(),
             'config' => [
                 'staging_branch' => config('statamic-stage.branches.staging'),
                 'production_branch' => config('statamic-stage.branches.production'),

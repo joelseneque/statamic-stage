@@ -259,6 +259,113 @@ class GitOperations
         }
     }
 
+    /**
+     * Get commits that are on staging but not on production (pending to be merged).
+     */
+    public function getPendingCommits(): array
+    {
+        $stagingBranch = config('statamic-stage.branches.staging', 'staging');
+        $productionBranch = config('statamic-stage.branches.production', 'main');
+        $remote = config('statamic-stage.git.remote', 'origin');
+
+        try {
+            // Fetch latest from remote to ensure we have up-to-date refs
+            $this->run([$this->gitBinary, 'fetch', $remote]);
+
+            // Get commits that are in staging but not in main
+            // Using remote refs to compare what's actually on the server
+            $output = $this->run([
+                $this->gitBinary, 'log',
+                "{$remote}/{$productionBranch}..{$remote}/{$stagingBranch}",
+                '--oneline',
+                '--no-merges',
+            ]);
+
+            return collect(explode("\n", $output))
+                ->filter()
+                ->map(function ($line) {
+                    $parts = explode(' ', $line, 2);
+
+                    return [
+                        'hash' => $parts[0] ?? '',
+                        'message' => $parts[1] ?? '',
+                    ];
+                })
+                ->values()
+                ->toArray();
+        } catch (GitOperationException) {
+            return [];
+        }
+    }
+
+    /**
+     * Check if there are pending commits to merge from staging to production.
+     */
+    public function hasPendingCommits(): bool
+    {
+        return count($this->getPendingCommits()) > 0;
+    }
+
+    /**
+     * Get the diff of files between staging and production branches.
+     */
+    public function getBranchDiff(): array
+    {
+        $stagingBranch = config('statamic-stage.branches.staging', 'staging');
+        $productionBranch = config('statamic-stage.branches.production', 'main');
+        $remote = config('statamic-stage.git.remote', 'origin');
+
+        try {
+            // Fetch to ensure we have latest refs
+            $this->run([$this->gitBinary, 'fetch', $remote]);
+
+            // Get files that differ between production and staging
+            $output = $this->run([
+                $this->gitBinary, 'diff',
+                '--name-status',
+                "{$remote}/{$productionBranch}...{$remote}/{$stagingBranch}",
+            ]);
+
+            $lines = collect(explode("\n", $output))->filter()->values();
+
+            $files = $lines->map(function ($line) {
+                // Format: "M\tpath/to/file" or "A\tpath/to/file"
+                $parts = preg_split('/\s+/', $line, 2);
+                $status = $parts[0] ?? '';
+                $file = $parts[1] ?? '';
+
+                $type = match ($status) {
+                    'A' => 'added',
+                    'M' => 'modified',
+                    'D' => 'deleted',
+                    'R' => 'renamed',
+                    default => 'unknown',
+                };
+
+                return [
+                    'file' => $file,
+                    'type' => $type,
+                    'status' => $status,
+                ];
+            })->toArray();
+
+            return [
+                'files' => $files,
+                'counts' => [
+                    'total' => count($files),
+                    'added' => collect($files)->where('type', 'added')->count(),
+                    'modified' => collect($files)->where('type', 'modified')->count(),
+                    'deleted' => collect($files)->where('type', 'deleted')->count(),
+                ],
+            ];
+        } catch (GitOperationException) {
+            return [
+                'files' => [],
+                'counts' => ['total' => 0, 'added' => 0, 'modified' => 0, 'deleted' => 0],
+            ];
+        }
+    }
+
     protected function getMergeCommitMessage(): string
     {
         $template = config(
