@@ -194,75 +194,13 @@ class GitOperations
             "+refs/heads/{$productionBranch}:refs/remotes/{$remote}/{$productionBranch}",
         ]);
 
-        // Check if local production branch exists
-        $localBranchExists = false;
-        try {
-            $this->run([$this->gitBinary, 'rev-parse', '--verify', $productionBranch]);
-            $localBranchExists = true;
-        } catch (GitOperationException) {
-            $localBranchExists = false;
-        }
-
-        if ($localBranchExists) {
-            // Checkout existing local branch (force to avoid stash issues with Forge symlinks)
-            $this->run([$this->gitBinary, 'checkout', '--force', $productionBranch]);
-            // Reset to match remote (in case of any local differences)
-            $this->run([
-                $this->gitBinary, 'reset', '--hard',
-                "{$remote}/{$productionBranch}",
-            ]);
-        } else {
-            // Create local branch from the remote tracking ref
-            // We already fetched with explicit refspecs above, so origin/main exists
-            // Create local branch pointing to the same commit as origin/main
-            $this->run([
-                $this->gitBinary, 'branch', $productionBranch,
-                "{$remote}/{$productionBranch}",
-            ]);
-            // Now checkout the local branch (force to avoid stash issues with Forge symlinks)
-            $this->run([$this->gitBinary, 'checkout', '--force', $productionBranch]);
-        }
-
-        // Merge remote staging into production (use origin/staging to ensure we merge what's on GitHub)
-        try {
-            $userName = config('statamic-stage.git.user.name', 'Statamic Stage');
-            $userEmail = config('statamic-stage.git.user.email', 'stage@statamic.local');
-
-            $this->run([
-                $this->gitBinary,
-                '-c', "user.name={$userName}",
-                '-c', "user.email={$userEmail}",
-                'merge', "{$remote}/{$stagingBranch}",
-                '--no-edit',
-                '--allow-unrelated-histories',
-                '-m', $this->getMergeCommitMessage(),
-            ]);
-        } catch (GitOperationException $e) {
-            // Check for conflicts
-            $conflicts = $this->run([$this->gitBinary, 'diff', '--name-only', '--diff-filter=U']);
-            if (! empty(trim($conflicts))) {
-                // Abort the merge
-                $this->run([$this->gitBinary, 'merge', '--abort']);
-                // Return to staging branch (force to avoid stash issues with Forge symlinks)
-                $this->run([$this->gitBinary, 'checkout', '--force', $stagingBranch]);
-
-                throw new GitConflictException(
-                    'Merge conflict detected',
-                    $conflicts
-                );
-            }
-
-            // Return to staging branch before re-throwing (force to avoid stash issues)
-            $this->run([$this->gitBinary, 'checkout', '--force', $stagingBranch]);
-
-            throw $e;
-        }
-
-        // Push to production
-        $this->run([$this->gitBinary, 'push', $remote, $productionBranch]);
-
-        // Return to staging branch (force to avoid stash issues with Forge symlinks)
-        $this->run([$this->gitBinary, 'checkout', '--force', $stagingBranch]);
+        // Simple approach: Push the staging branch commit directly to production
+        // This is a fast-forward push that updates main to point to the same commit as staging
+        // Using refspec: origin/staging:refs/heads/main means "push what origin/staging points to, to main"
+        $this->run([
+            $this->gitBinary, 'push', $remote,
+            "{$remote}/{$stagingBranch}:refs/heads/{$productionBranch}",
+        ]);
     }
 
     public function pushToProduction(?string $commitMessage = null): array
