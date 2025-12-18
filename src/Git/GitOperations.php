@@ -104,13 +104,21 @@ class GitOperations
     /**
      * Fetch the latest refs from the remote.
      * This updates the local cache of remote branch positions.
+     * Ensures both staging and production branches are fetched.
      */
     public function fetchRemote(): void
     {
         $remote = config('statamic-stage.git.remote', 'origin');
+        $stagingBranch = config('statamic-stage.branches.staging', 'staging');
+        $productionBranch = config('statamic-stage.branches.production', 'main');
 
         try {
-            $this->run([$this->gitBinary, 'fetch', $remote]);
+            // Fetch both staging and production branches explicitly
+            // This handles Forge's single-branch clone setup
+            $this->run([
+                $this->gitBinary, 'fetch', $remote,
+                $stagingBranch, $productionBranch,
+            ]);
             \Illuminate\Support\Facades\Log::info('Git fetch successful');
         } catch (GitOperationException $e) {
             // Log the failure for debugging, but don't throw
