@@ -113,11 +113,12 @@ class GitOperations
         $productionBranch = config('statamic-stage.branches.production', 'main');
 
         try {
-            // Fetch both staging and production branches explicitly
+            // Fetch both branches with explicit refspecs to create remote tracking branches
             // This handles Forge's single-branch clone setup
             $this->run([
                 $this->gitBinary, 'fetch', $remote,
-                $stagingBranch, $productionBranch,
+                "+refs/heads/{$stagingBranch}:refs/remotes/{$remote}/{$stagingBranch}",
+                "+refs/heads/{$productionBranch}:refs/remotes/{$remote}/{$productionBranch}",
             ]);
             \Illuminate\Support\Facades\Log::info('Git fetch successful');
         } catch (GitOperationException $e) {
