@@ -234,6 +234,7 @@ class GitOperations
                 '-c', "user.email={$userEmail}",
                 'merge', "{$remote}/{$stagingBranch}",
                 '--no-edit',
+                '--allow-unrelated-histories',
                 '-m', $this->getMergeCommitMessage(),
             ]);
         } catch (GitOperationException $e) {
