@@ -48,4 +48,9 @@ class Stage
     {
         return $this->git->getBranchDiff();
     }
+
+    public function fetchRemote(): void
+    {
+        $this->git->fetchRemote();
+    }
 }
