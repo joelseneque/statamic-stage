@@ -2,7 +2,7 @@
 @section('title', __('statamic-stage::messages.page_title'))
 
 @section('content')
-<div x-data="stagePush()" class="max-w-4xl">
+<div class="max-w-4xl" id="stage-app">
     <div class="flex items-center justify-between mb-6">
         <h1 class="text-3xl font-bold">{{ __('statamic-stage::messages.page_title') }}</h1>
     </div>
@@ -155,14 +155,15 @@
         @endif
 
         {{-- Push Form --}}
-        <form @submit.prevent="push" class="border-t border-gray-200 dark:border-dark-600 pt-6">
+        <form id="push-form" class="border-t border-gray-200 dark:border-dark-600 pt-6">
+            @csrf
             <div class="mb-4">
                 <label for="commit_message" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {{ __('statamic-stage::messages.commit_message_label') }}
                 </label>
                 <input
                     type="text"
-                    x-model="commitMessage"
+                    name="commit_message"
                     id="commit_message"
                     class="input-text"
                     placeholder="{{ __('statamic-stage::messages.commit_message_placeholder') }}"
@@ -173,78 +174,35 @@
                 <button
                     type="submit"
                     class="btn-primary flex items-center gap-2"
-                    :disabled="loading || (!canPush)"
-                    :class="{ 'opacity-50 cursor-not-allowed': loading || !canPush }"
+                    id="push-button"
+                    @if(!$hasPendingCommits && !$hasUncommittedChanges) disabled @endif
                 >
-                    <template x-if="!loading">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="4"/>
-                            <line x1="1.05" y1="12" x2="7" y2="12"/>
-                            <line x1="17.01" y1="12" x2="22.96" y2="12"/>
-                        </svg>
-                    </template>
-                    <template x-if="loading">
-                        <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    </template>
-                    <span x-text="loading ? '{{ __('statamic-stage::messages.push_in_progress') }}' : '{{ __('statamic-stage::messages.push_button') }}'"></span>
+                    <svg id="push-icon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="4"/>
+                        <line x1="1.05" y1="12" x2="7" y2="12"/>
+                        <line x1="17.01" y1="12" x2="22.96" y2="12"/>
+                    </svg>
+                    <svg id="push-spinner" class="animate-spin h-4 w-4 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span id="push-button-text">{{ __('statamic-stage::messages.push_button') }}</span>
                 </button>
 
-                <template x-if="!canPush && !loading">
+                <div id="push-status" class="text-sm text-gray-500 dark:text-gray-400 hidden">
+                    {{ __('statamic-stage::messages.push_in_progress') }}
+                </div>
+
+                @if(!$hasPendingCommits && !$hasUncommittedChanges)
                     <span class="text-sm text-gray-500 dark:text-gray-400">
                         {{ __('statamic-stage::messages.nothing_to_push') }}
                     </span>
-                </template>
+                @endif
             </div>
         </form>
 
         {{-- Result Messages --}}
-        <div x-show="result" x-cloak class="mt-4">
-            <template x-if="result && result.success">
-                <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                    <div class="flex items-center gap-2 text-green-800 dark:text-green-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                        </svg>
-                        <span x-text="result.message"></span>
-                    </div>
-                    <template x-if="result.log && result.log.length > 0">
-                        <div class="mt-3 text-sm text-green-700 dark:text-green-300">
-                            <ul class="list-disc pl-5 space-y-1">
-                                <template x-for="logItem in result.log" :key="logItem">
-                                    <li x-text="logItem"></li>
-                                </template>
-                            </ul>
-                        </div>
-                    </template>
-                </div>
-            </template>
-
-            <template x-if="result && !result.success">
-                <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                    <div class="flex items-center gap-2 text-red-800 dark:text-red-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                        </svg>
-                        <span x-text="result.message || 'Push failed'"></span>
-                    </div>
-                </div>
-            </template>
-        </div>
-
-        {{-- Error Messages --}}
-        <div x-show="error" x-cloak class="mt-4">
-            <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                <div class="text-red-800 dark:text-red-200">
-                    <strong>Error:</strong> <span x-text="error"></span>
-                </div>
-                <div class="mt-2 text-sm text-red-700 dark:text-red-300">
-                    Check the browser console and Laravel logs for more details.
-                </div>
-            </div>
-        </div>
+        <div id="push-result" class="mt-4 hidden"></div>
     </div>
 
     {{-- Recent Pushes --}}
@@ -269,83 +227,132 @@
     </div>
     @endif
 </div>
-
-<script>
-function stagePush() {
-    return {
-        loading: false,
-        result: null,
-        error: null,
-        commitMessage: '',
-        canPush: {{ ($hasPendingCommits || $hasUncommittedChanges) ? 'true' : 'false' }},
-
-        async push() {
-            console.log('Push button clicked');
-
-            if (!this.canPush) {
-                console.log('Cannot push - no changes');
-                return;
-            }
-
-            if (!confirm('{{ __('statamic-stage::messages.push_confirm') }}')) {
-                console.log('Push cancelled by user');
-                return;
-            }
-
-            this.loading = true;
-            this.result = null;
-            this.error = null;
-
-            console.log('Starting push to production...');
-            console.log('Commit message:', this.commitMessage);
-
-            try {
-                const url = '{{ cp_route('utilities.stage.push') }}';
-                console.log('POST URL:', url);
-
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        commit_message: this.commitMessage
-                    })
-                });
-
-                console.log('Response status:', response.status);
-                console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    const text = await response.text();
-                    console.error('Non-JSON response:', text.substring(0, 500));
-                    throw new Error('Server returned non-JSON response. Check Laravel logs.');
-                }
-
-                const data = await response.json();
-                console.log('Response data:', data);
-
-                this.result = data;
-
-                if (data.success) {
-                    console.log('Push successful, reloading in 3 seconds...');
-                    setTimeout(() => window.location.reload(), 3000);
-                }
-            } catch (e) {
-                console.error('Push error:', e);
-                this.error = e.message || 'An error occurred. Please try again.';
-            } finally {
-                this.loading = false;
-            }
-        }
-    }
-}
-</script>
-
-<style>
-[x-cloak] { display: none !important; }
-</style>
 @endsection
+
+@push('scripts')
+<script>
+(function() {
+    const form = document.getElementById('push-form');
+    const button = document.getElementById('push-button');
+    const buttonText = document.getElementById('push-button-text');
+    const pushIcon = document.getElementById('push-icon');
+    const pushSpinner = document.getElementById('push-spinner');
+    const status = document.getElementById('push-status');
+    const result = document.getElementById('push-result');
+    const commitMessageInput = document.getElementById('commit_message');
+
+    if (!form) {
+        console.error('Push form not found');
+        return;
+    }
+
+    console.log('Stage push form initialized');
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        console.log('Form submitted');
+
+        if (button.disabled) {
+            console.log('Button is disabled, ignoring');
+            return;
+        }
+
+        if (!confirm('{{ __('statamic-stage::messages.push_confirm') }}')) {
+            console.log('User cancelled');
+            return;
+        }
+
+        const commitMessage = commitMessageInput.value;
+        console.log('Starting push with message:', commitMessage);
+
+        // Update UI to loading state
+        button.disabled = true;
+        button.classList.add('opacity-50');
+        buttonText.textContent = '{{ __('statamic-stage::messages.push_in_progress') }}';
+        pushIcon.classList.add('hidden');
+        pushSpinner.classList.remove('hidden');
+        status.classList.remove('hidden');
+        result.classList.add('hidden');
+
+        try {
+            const url = '{{ cp_route('utilities.stage.push') }}';
+            console.log('POST URL:', url);
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    commit_message: commitMessage
+                })
+            });
+
+            console.log('Response status:', response.status);
+
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('Non-JSON response:', text.substring(0, 500));
+                throw new Error('Server returned non-JSON response. Check Laravel logs.');
+            }
+
+            const data = await response.json();
+            console.log('Response data:', data);
+
+            result.classList.remove('hidden');
+
+            if (data.success) {
+                result.innerHTML = `
+                    <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                        <div class="flex items-center gap-2 text-green-800 dark:text-green-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                            </svg>
+                            ${data.message}
+                        </div>
+                        ${data.log ? '<div class="mt-2 text-sm text-green-700 dark:text-green-300"><ul class="list-disc pl-5">' + data.log.map(l => '<li>' + l + '</li>').join('') + '</ul></div>' : ''}
+                    </div>
+                `;
+                console.log('Push successful, reloading in 3 seconds...');
+                setTimeout(() => window.location.reload(), 3000);
+            } else {
+                result.innerHTML = `
+                    <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                        <div class="flex items-center gap-2 text-red-800 dark:text-red-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                            </svg>
+                            ${data.message || 'Push failed'}
+                        </div>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Push error:', error);
+            result.classList.remove('hidden');
+            result.innerHTML = `
+                <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                    <div class="text-red-800 dark:text-red-200">
+                        <strong>Error:</strong> ${error.message || 'An error occurred. Please try again.'}
+                    </div>
+                    <div class="mt-2 text-sm text-red-700 dark:text-red-300">
+                        Check the browser console and Laravel logs for more details.
+                    </div>
+                </div>
+            `;
+        } finally {
+            // Reset button state
+            button.disabled = false;
+            button.classList.remove('opacity-50');
+            buttonText.textContent = '{{ __('statamic-stage::messages.push_button') }}';
+            pushIcon.classList.remove('hidden');
+            pushSpinner.classList.add('hidden');
+            status.classList.add('hidden');
+        }
+    });
+})();
+</script>
+@endpush
