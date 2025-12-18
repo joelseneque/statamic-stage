@@ -261,6 +261,7 @@ class GitOperations
 
     /**
      * Get commits that are on staging but not on production (pending to be merged).
+     * Uses local branch refs - assumes the repo is kept in sync via deployments.
      */
     public function getPendingCommits(): array
     {
@@ -269,11 +270,8 @@ class GitOperations
         $remote = config('statamic-stage.git.remote', 'origin');
 
         try {
-            // Fetch latest from remote to ensure we have up-to-date refs
-            $this->run([$this->gitBinary, 'fetch', $remote]);
-
-            // Get commits that are in staging but not in main
-            // Using remote refs to compare what's actually on the server
+            // Compare remote tracking branches (no fetch needed - updated by deployments)
+            // This compares origin/main..origin/staging using locally cached refs
             $output = $this->run([
                 $this->gitBinary, 'log',
                 "{$remote}/{$productionBranch}..{$remote}/{$stagingBranch}",
@@ -308,6 +306,7 @@ class GitOperations
 
     /**
      * Get the diff of files between staging and production branches.
+     * Uses local branch refs - assumes the repo is kept in sync via deployments.
      */
     public function getBranchDiff(): array
     {
@@ -316,10 +315,7 @@ class GitOperations
         $remote = config('statamic-stage.git.remote', 'origin');
 
         try {
-            // Fetch to ensure we have latest refs
-            $this->run([$this->gitBinary, 'fetch', $remote]);
-
-            // Get files that differ between production and staging
+            // Get files that differ between production and staging (using locally cached refs)
             $output = $this->run([
                 $this->gitBinary, 'diff',
                 '--name-status',
