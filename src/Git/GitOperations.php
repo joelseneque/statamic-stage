@@ -187,16 +187,36 @@ class GitOperations
         $productionBranch = config('statamic-stage.branches.production', 'main');
         $remote = config('statamic-stage.git.remote', 'origin');
 
-        // Fetch latest from remote
-        $this->run([$this->gitBinary, 'fetch', $remote]);
+        // Fetch latest from remote (with explicit refspecs for Forge compatibility)
+        $this->run([
+            $this->gitBinary, 'fetch', $remote,
+            "+refs/heads/{$stagingBranch}:refs/remotes/{$remote}/{$stagingBranch}",
+            "+refs/heads/{$productionBranch}:refs/remotes/{$remote}/{$productionBranch}",
+        ]);
 
-        // Checkout production branch
-        $this->run([$this->gitBinary, 'checkout', $productionBranch]);
+        // Check if local production branch exists
+        $localBranchExists = false;
+        try {
+            $this->run([$this->gitBinary, 'rev-parse', '--verify', $productionBranch]);
+            $localBranchExists = true;
+        } catch (GitOperationException) {
+            $localBranchExists = false;
+        }
 
-        // Pull latest production changes
-        $this->run([$this->gitBinary, 'pull', $remote, $productionBranch]);
+        if ($localBranchExists) {
+            // Checkout existing local branch
+            $this->run([$this->gitBinary, 'checkout', $productionBranch]);
+            // Pull latest production changes
+            $this->run([$this->gitBinary, 'pull', $remote, $productionBranch]);
+        } else {
+            // Create local branch tracking the remote
+            $this->run([
+                $this->gitBinary, 'checkout', '-b', $productionBranch,
+                '--track', "{$remote}/{$productionBranch}",
+            ]);
+        }
 
-        // Merge staging into production
+        // Merge remote staging into production (use origin/staging to ensure we merge what's on GitHub)
         try {
             $userName = config('statamic-stage.git.user.name', 'Statamic Stage');
             $userEmail = config('statamic-stage.git.user.email', 'stage@statamic.local');
@@ -205,7 +225,7 @@ class GitOperations
                 $this->gitBinary,
                 '-c', "user.name={$userName}",
                 '-c', "user.email={$userEmail}",
-                'merge', $stagingBranch,
+                'merge', "{$remote}/{$stagingBranch}",
                 '--no-edit',
                 '-m', $this->getMergeCommitMessage(),
             ]);
