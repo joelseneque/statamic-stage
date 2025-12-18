@@ -206,19 +206,21 @@ class GitOperations
         if ($localBranchExists) {
             // Checkout existing local branch
             $this->run([$this->gitBinary, 'checkout', $productionBranch]);
-            // Pull latest production changes
-            $this->run([$this->gitBinary, 'pull', $remote, $productionBranch]);
-        } else {
-            // Create local branch from the remote tracking branch
+            // Reset to match remote (in case of any local differences)
             $this->run([
-                $this->gitBinary, 'checkout', '-b', $productionBranch,
+                $this->gitBinary, 'reset', '--hard',
                 "{$remote}/{$productionBranch}",
             ]);
-            // Set up tracking
+        } else {
+            // Create local branch from the remote tracking ref
+            // We already fetched with explicit refspecs above, so origin/main exists
+            // Create local branch pointing to the same commit as origin/main
             $this->run([
-                $this->gitBinary, 'branch', '-u',
-                "{$remote}/{$productionBranch}", $productionBranch,
+                $this->gitBinary, 'branch', $productionBranch,
+                "{$remote}/{$productionBranch}",
             ]);
+            // Now checkout the local branch
+            $this->run([$this->gitBinary, 'checkout', $productionBranch]);
         }
 
         // Merge remote staging into production (use origin/staging to ensure we merge what's on GitHub)
