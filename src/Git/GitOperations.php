@@ -101,6 +101,22 @@ class GitOperations
         return trim($this->run([$this->gitBinary, 'rev-parse', '--abbrev-ref', 'HEAD']));
     }
 
+    /**
+     * Fetch the latest refs from the remote.
+     * This updates the local cache of remote branch positions.
+     */
+    public function fetchRemote(): void
+    {
+        $remote = config('statamic-stage.git.remote', 'origin');
+
+        try {
+            $this->run([$this->gitBinary, 'fetch', $remote]);
+        } catch (GitOperationException) {
+            // Silently fail - we'll use cached refs if fetch fails
+            // This allows the page to still load on local dev without SSH keys
+        }
+    }
+
     public function commitChanges(string $message): void
     {
         // Stage changes based on tracking mode
@@ -261,7 +277,7 @@ class GitOperations
 
     /**
      * Get commits that are on staging but not on production (pending to be merged).
-     * Uses local branch refs - assumes the repo is kept in sync via deployments.
+     * Call fetchRemote() before this method to ensure refs are up to date.
      */
     public function getPendingCommits(): array
     {
@@ -270,8 +286,7 @@ class GitOperations
         $remote = config('statamic-stage.git.remote', 'origin');
 
         try {
-            // Compare remote tracking branches (no fetch needed - updated by deployments)
-            // This compares origin/main..origin/staging using locally cached refs
+            // Compare remote tracking branches
             $output = $this->run([
                 $this->gitBinary, 'log',
                 "{$remote}/{$productionBranch}..{$remote}/{$stagingBranch}",
@@ -306,7 +321,7 @@ class GitOperations
 
     /**
      * Get the diff of files between staging and production branches.
-     * Uses local branch refs - assumes the repo is kept in sync via deployments.
+     * Call fetchRemote() before this method to ensure refs are up to date.
      */
     public function getBranchDiff(): array
     {
@@ -315,7 +330,7 @@ class GitOperations
         $remote = config('statamic-stage.git.remote', 'origin');
 
         try {
-            // Get files that differ between production and staging (using locally cached refs)
+            // Get files that differ between production and staging
             $output = $this->run([
                 $this->gitBinary, 'diff',
                 '--name-status',

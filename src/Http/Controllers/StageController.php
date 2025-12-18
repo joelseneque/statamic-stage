@@ -17,6 +17,9 @@ class StageController extends CpController
     {
         abort_unless(auth()->user()?->can('push to production'), 403);
 
+        // Fetch latest refs from remote once before getting status
+        Stage::fetchRemote();
+
         return view('statamic-stage::utilities.stage', [
             'status' => Stage::getStatus(),
             'currentBranch' => Stage::getCurrentBranch(),

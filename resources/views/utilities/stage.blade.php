@@ -13,8 +13,8 @@
         </p>
 
         {{-- Branch Info --}}
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div class="bg-gray-100 dark:bg-dark-700 rounded-lg p-4">
+        <div class="flex flex-wrap gap-4 mb-6">
+            <div class="flex-1 min-w-0 bg-gray-100 dark:bg-dark-700 rounded-lg p-4">
                 <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">
                     {{ __('statamic-stage::messages.current_branch') }}
                 </div>
@@ -23,7 +23,7 @@
                 </div>
             </div>
 
-            <div class="bg-gray-100 dark:bg-dark-700 rounded-lg p-4">
+            <div class="flex-1 min-w-0 bg-gray-100 dark:bg-dark-700 rounded-lg p-4">
                 <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">
                     {{ __('statamic-stage::messages.staging_branch') }}
                 </div>
@@ -32,7 +32,7 @@
                 </div>
             </div>
 
-            <div class="bg-gray-100 dark:bg-dark-700 rounded-lg p-4">
+            <div class="flex-1 min-w-0 bg-gray-100 dark:bg-dark-700 rounded-lg p-4">
                 <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">
                     {{ __('statamic-stage::messages.production_branch') }}
                 </div>
