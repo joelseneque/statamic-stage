@@ -227,11 +227,10 @@
     </div>
     @endif
 </div>
-@endsection
 
-@push('scripts')
+
 <script>
-(function() {
+document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('push-form');
     const button = document.getElementById('push-button');
     const buttonText = document.getElementById('push-button-text');
@@ -250,16 +249,17 @@
 
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
+        e.stopPropagation();
         console.log('Form submitted');
 
         if (button.disabled) {
             console.log('Button is disabled, ignoring');
-            return;
+            return false;
         }
 
         if (!confirm('{{ __('statamic-stage::messages.push_confirm') }}')) {
             console.log('User cancelled');
-            return;
+            return false;
         }
 
         const commitMessage = commitMessageInput.value;
@@ -352,7 +352,9 @@
             pushSpinner.classList.add('hidden');
             status.classList.add('hidden');
         }
+
+        return false;
     });
-})();
+});
 </script>
-@endpush
+@endsection
