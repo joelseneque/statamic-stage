@@ -15,11 +15,11 @@ class PushToProductionWidget extends Widget
             return '';
         }
 
-        $status = Stage::getStatus();
+        $pendingCommits = Stage::getPendingCommits();
 
         return view('statamic-stage::widgets.push-to-production', [
-            'hasChanges' => Stage::hasUncommittedChanges(),
-            'changesCount' => $status['counts']['total'] ?? 0,
+            'hasPendingCommits' => Stage::hasPendingCommits(),
+            'commitsCount' => count($pendingCommits),
             'canPush' => auth()->user()?->can('push to production'),
         ])->render();
     }

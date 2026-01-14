@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\Facade;
  * @method static string getCurrentBranch()
  * @method static array pushToProduction(?string $commitMessage = null)
  * @method static array getRecentPushLogs()
+ * @method static array getPendingCommits()
+ * @method static bool hasPendingCommits()
+ * @method static array getBranchDiff()
+ * @method static void fetchRemote()
  *
  * @see \JoelSeneque\StatamicStage\Stage
  */

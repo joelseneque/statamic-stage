@@ -5,13 +5,13 @@
                 {{ __('statamic-stage::messages.widget_title') }}
             </h2>
 
-            @if($hasChanges)
+            @if($hasPendingCommits)
                 <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    {{ trans_choice('statamic-stage::messages.widget_changes_count', $changesCount, ['count' => $changesCount]) }}
+                    {{ trans_choice('statamic-stage::messages.pending_commits_count', $commitsCount, ['count' => $commitsCount]) }}
                 </p>
             @else
                 <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                    {{ __('statamic-stage::messages.widget_no_changes') }}
+                    {{ __('statamic-stage::messages.branches_in_sync') }}
                 </p>
             @endif
         </div>
