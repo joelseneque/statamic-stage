@@ -256,53 +256,62 @@
 
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('push-form');
-    const button = document.getElementById('push-button');
-    const buttonText = document.getElementById('push-button-text');
-    const pushIcon = document.getElementById('push-icon');
-    const pushSpinner = document.getElementById('push-spinner');
-    const status = document.getElementById('push-status');
-    const result = document.getElementById('push-result');
-    const commitMessageInput = document.getElementById('commit_message');
-
-    if (!form) {
-        console.error('Push form not found');
+(function () {
+    // Bind the push handler once, via event delegation on `document`, instead of
+    // directly on the form element. This is deliberately defensive about the
+    // Statamic CP environment:
+    //   - it doesn't matter whether DOMContentLoaded has already fired;
+    //   - if the CP re-renders or replaces the form node after this script runs,
+    //     a directly-bound listener would be left on the detached node and the
+    //     live form would fall back to a native submit (a plain page reload with
+    //     no confirmation) — delegation on `document` keeps working because the
+    //     submit event still bubbles up from whatever #push-form is current.
+    // Element lookups happen at submit time so they always reference live nodes.
+    if (window.__stagePushBound) {
         return;
     }
+    window.__stagePushBound = true;
 
-    console.log('Stage push form initialized');
+    document.addEventListener('submit', async function (e) {
+        const form = e.target;
+        if (! form || form.id !== 'push-form') {
+            return;
+        }
 
-    form.addEventListener('submit', async function(e) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('Form submitted');
 
-        if (button.disabled) {
-            console.log('Button is disabled, ignoring');
-            return false;
+        const button = document.getElementById('push-button');
+        const buttonText = document.getElementById('push-button-text');
+        const pushIcon = document.getElementById('push-icon');
+        const pushSpinner = document.getElementById('push-spinner');
+        const status = document.getElementById('push-status');
+        const result = document.getElementById('push-result');
+        const commitMessageInput = document.getElementById('commit_message');
+
+        if (button && button.disabled) {
+            return;
         }
 
-        if (!confirm('{{ __('statamic-stage::messages.push_confirm') }}')) {
-            console.log('User cancelled');
-            return false;
+        if (! confirm('{{ __('statamic-stage::messages.push_confirm') }}')) {
+            return;
         }
 
-        const commitMessage = commitMessageInput.value;
-        console.log('Starting push with message:', commitMessage);
+        const commitMessage = commitMessageInput ? commitMessageInput.value : '';
 
         // Update UI to loading state
-        button.disabled = true;
-        button.classList.add('opacity-50');
-        buttonText.textContent = '{{ __('statamic-stage::messages.push_in_progress') }}';
-        pushIcon.classList.add('hidden');
-        pushSpinner.classList.remove('hidden');
-        status.classList.remove('hidden');
-        result.classList.add('hidden');
+        if (button) {
+            button.disabled = true;
+            button.classList.add('opacity-50');
+        }
+        if (buttonText) { buttonText.textContent = '{{ __('statamic-stage::messages.push_in_progress') }}'; }
+        if (pushIcon) { pushIcon.classList.add('hidden'); }
+        if (pushSpinner) { pushSpinner.classList.remove('hidden'); }
+        if (status) { status.classList.remove('hidden'); }
+        if (result) { result.classList.add('hidden'); }
 
         try {
             const url = '{{ cp_route('utilities.stage.push') }}';
-            console.log('POST URL:', url);
 
             const response = await fetch(url, {
                 method: 'POST',
@@ -316,8 +325,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
             });
 
-            console.log('Response status:', response.status);
-
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
                 const text = await response.text();
@@ -326,11 +333,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             const data = await response.json();
-            console.log('Response data:', data);
 
-            result.classList.remove('hidden');
+            if (result) { result.classList.remove('hidden'); }
 
-            if (data.success) {
+            if (data.success && result) {
                 result.innerHTML = `
                     <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
                         <div class="flex items-center gap-2 text-green-800 dark:text-green-200">
@@ -342,9 +348,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         ${data.log ? '<div class="mt-2 text-sm text-green-700 dark:text-green-300"><ul class="list-disc pl-5">' + data.log.map(l => '<li>' + l + '</li>').join('') + '</ul></div>' : ''}
                     </div>
                 `;
-                console.log('Push successful, reloading in 3 seconds...');
+            }
+
+            if (data.success) {
                 setTimeout(() => window.location.reload(), 3000);
-            } else {
+            } else if (result) {
                 result.innerHTML = `
                     <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
                         <div class="flex items-center gap-2 text-red-800 dark:text-red-200">
@@ -358,29 +366,31 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (error) {
             console.error('Push error:', error);
-            result.classList.remove('hidden');
-            result.innerHTML = `
-                <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                    <div class="text-red-800 dark:text-red-200">
-                        <strong>Error:</strong> ${error.message || 'An error occurred. Please try again.'}
+            if (result) {
+                result.classList.remove('hidden');
+                result.innerHTML = `
+                    <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                        <div class="text-red-800 dark:text-red-200">
+                            <strong>Error:</strong> ${error.message || 'An error occurred. Please try again.'}
+                        </div>
+                        <div class="mt-2 text-sm text-red-700 dark:text-red-300">
+                            Check the browser console and Laravel logs for more details.
+                        </div>
                     </div>
-                    <div class="mt-2 text-sm text-red-700 dark:text-red-300">
-                        Check the browser console and Laravel logs for more details.
-                    </div>
-                </div>
-            `;
+                `;
+            }
         } finally {
             // Reset button state
-            button.disabled = false;
-            button.classList.remove('opacity-50');
-            buttonText.textContent = '{{ __('statamic-stage::messages.push_button') }}';
-            pushIcon.classList.remove('hidden');
-            pushSpinner.classList.add('hidden');
-            status.classList.add('hidden');
+            if (button) {
+                button.disabled = false;
+                button.classList.remove('opacity-50');
+            }
+            if (buttonText) { buttonText.textContent = '{{ __('statamic-stage::messages.push_button') }}'; }
+            if (pushIcon) { pushIcon.classList.remove('hidden'); }
+            if (pushSpinner) { pushSpinner.classList.add('hidden'); }
+            if (status) { status.classList.add('hidden'); }
         }
-
-        return false;
     });
-});
+})();
 </script>
 @endsection
