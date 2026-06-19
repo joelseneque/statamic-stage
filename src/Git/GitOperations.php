@@ -3,6 +3,8 @@
 namespace JoelSeneque\StatamicStage\Git;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use JoelSeneque\StatamicStage\Git\Exceptions\GitConflictException;
 use JoelSeneque\StatamicStage\Git\Exceptions\GitOperationException;
 use Symfony\Component\Process\Exception\ProcessFailedException;
@@ -17,6 +19,12 @@ class GitOperations
     protected string $gitBinary;
 
     protected bool $trackAllChanges;
+
+    /**
+     * The last error encountered while reading branch state, if any.
+     * Lets the CP surface a failure instead of silently showing "in sync".
+     */
+    protected ?string $lastError = null;
 
     public function __construct()
     {
@@ -106,7 +114,7 @@ class GitOperations
      * This updates the local cache of remote branch positions.
      * Ensures both staging and production branches are fetched.
      */
-    public function fetchRemote(): void
+    public function fetchRemote(): bool
     {
         $remote = config('statamic-stage.git.remote', 'origin');
         $stagingBranch = config('statamic-stage.branches.staging', 'staging');
@@ -120,14 +128,35 @@ class GitOperations
                 "+refs/heads/{$stagingBranch}:refs/remotes/{$remote}/{$stagingBranch}",
                 "+refs/heads/{$productionBranch}:refs/remotes/{$remote}/{$productionBranch}",
             ]);
-            \Illuminate\Support\Facades\Log::info('Git fetch successful');
+            Log::info('Git fetch successful');
+
+            return true;
         } catch (GitOperationException $e) {
             // Log the failure for debugging, but don't throw
-            \Illuminate\Support\Facades\Log::warning('Git fetch failed', [
+            Log::warning('Git fetch failed', [
                 'error' => $e->getMessage(),
                 'remote' => $remote,
             ]);
+            $this->lastError = $e->getMessage();
+
+            return false;
         }
+    }
+
+    /**
+     * Get the last error encountered while reading branch state, if any.
+     */
+    public function getLastError(): ?string
+    {
+        return $this->lastError;
+    }
+
+    /**
+     * Whether a git error occurred while reading branch state.
+     */
+    public function hasError(): bool
+    {
+        return $this->lastError !== null;
     }
 
     public function commitChanges(string $message): void
@@ -202,7 +231,7 @@ class GitOperations
         // https://docs.github.com/en/rest/branches/branches#merge-a-branch
         $url = "https://api.github.com/repos/{$githubRepo}/merges";
 
-        $response = \Illuminate\Support\Facades\Http::withToken($githubToken)
+        $response = Http::withToken($githubToken)
             ->withHeaders([
                 'Accept' => 'application/vnd.github+json',
                 'X-GitHub-Api-Version' => '2022-11-28',
@@ -215,7 +244,7 @@ class GitOperations
 
         if ($response->status() === 201) {
             // Merge successful
-            \Illuminate\Support\Facades\Log::info('GitHub merge successful', [
+            Log::info('GitHub merge successful', [
                 'sha' => $response->json('sha'),
             ]);
 
@@ -224,7 +253,7 @@ class GitOperations
 
         if ($response->status() === 204) {
             // No merge needed - branches already in sync
-            \Illuminate\Support\Facades\Log::info('GitHub merge: branches already in sync');
+            Log::info('GitHub merge: branches already in sync');
 
             return;
         }
@@ -313,7 +342,7 @@ class GitOperations
         $remote = config('statamic-stage.git.remote', 'origin');
 
         $command = "{$remote}/{$productionBranch}..{$remote}/{$stagingBranch}";
-        \Illuminate\Support\Facades\Log::info('getPendingCommits command', ['range' => $command]);
+        Log::info('getPendingCommits command', ['range' => $command]);
 
         try {
             // Compare remote tracking branches
@@ -324,7 +353,7 @@ class GitOperations
                 '--no-merges',
             ]);
 
-            \Illuminate\Support\Facades\Log::info('getPendingCommits output', ['output' => $output]);
+            Log::info('getPendingCommits output', ['output' => $output]);
 
             return collect(explode("\n", $output))
                 ->filter()
@@ -339,10 +368,11 @@ class GitOperations
                 ->values()
                 ->toArray();
         } catch (GitOperationException $e) {
-            \Illuminate\Support\Facades\Log::error('getPendingCommits failed', [
+            Log::error('getPendingCommits failed', [
                 'error' => $e->getMessage(),
                 'range' => $command,
             ]);
+            $this->lastError = $e->getMessage();
 
             return [];
         }
@@ -406,7 +436,9 @@ class GitOperations
                     'deleted' => collect($files)->where('type', 'deleted')->count(),
                 ],
             ];
-        } catch (GitOperationException) {
+        } catch (GitOperationException $e) {
+            $this->lastError = $e->getMessage();
+
             return [
                 'files' => [],
                 'counts' => ['total' => 0, 'added' => 0, 'modified' => 0, 'deleted' => 0],

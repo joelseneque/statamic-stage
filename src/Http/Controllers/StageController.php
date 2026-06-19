@@ -20,13 +20,17 @@ class StageController extends CpController
         // Fetch latest refs from remote once before getting status
         Stage::fetchRemote();
 
+        $pendingCommits = Stage::getPendingCommits();
+        $branchDiff = Stage::getBranchDiff();
+
         return view('statamic-stage::utilities.stage', [
             'status' => Stage::getStatus(),
             'currentBranch' => Stage::getCurrentBranch(),
             'hasUncommittedChanges' => Stage::hasUncommittedChanges(),
-            'pendingCommits' => Stage::getPendingCommits(),
-            'branchDiff' => Stage::getBranchDiff(),
-            'hasPendingCommits' => Stage::hasPendingCommits(),
+            'pendingCommits' => $pendingCommits,
+            'branchDiff' => $branchDiff,
+            'gitError' => Stage::getLastError(),
+            'hasPendingCommits' => count($pendingCommits) > 0,
             'config' => [
                 'staging_branch' => config('statamic-stage.branches.staging'),
                 'production_branch' => config('statamic-stage.branches.production'),

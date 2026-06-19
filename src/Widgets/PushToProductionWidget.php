@@ -15,12 +15,19 @@ class PushToProductionWidget extends Widget
             return '';
         }
 
+        // Fetch the latest remote refs before comparing branches. On a
+        // single-branch clone (e.g. Forge) the remote-tracking refs won't
+        // exist until fetched, otherwise getPendingCommits() fails with
+        // "unknown revision" (git exit code 128).
+        Stage::fetchRemote();
+
         $pendingCommits = Stage::getPendingCommits();
 
         return view('statamic-stage::widgets.push-to-production', [
-            'hasPendingCommits' => Stage::hasPendingCommits(),
+            'hasPendingCommits' => count($pendingCommits) > 0,
             'commitsCount' => count($pendingCommits),
             'canPush' => auth()->user()?->can('push to production'),
+            'gitError' => Stage::getLastError(),
         ])->render();
     }
 

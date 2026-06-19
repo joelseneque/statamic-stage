@@ -49,6 +49,8 @@ return [
     'push_in_progress' => 'Push to production is in progress...',
 
     // Error Messages
+    'git_error_title' => 'Unable to read staging status',
+    'git_error_message' => "We couldn't compare the staging and production branches. The push button has been disabled to be safe. Please contact support and include the details below.",
     'push_failed' => 'Push failed: :error',
     'merge_conflict' => 'Merge conflict detected in: :files. Please resolve conflicts manually.',
     'not_on_staging_branch' => 'You must be on the staging branch to push to production.',

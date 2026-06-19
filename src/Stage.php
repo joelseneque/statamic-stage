@@ -49,8 +49,18 @@ class Stage
         return $this->git->getBranchDiff();
     }
 
-    public function fetchRemote(): void
+    public function fetchRemote(): bool
     {
-        $this->git->fetchRemote();
+        return $this->git->fetchRemote();
+    }
+
+    public function getLastError(): ?string
+    {
+        return $this->git->getLastError();
+    }
+
+    public function hasError(): bool
+    {
+        return $this->git->hasError();
     }
 }

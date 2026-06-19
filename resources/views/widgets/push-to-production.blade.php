@@ -5,7 +5,14 @@
                 {{ __('statamic-stage::messages.widget_title') }}
             </h2>
 
-            @if($hasPendingCommits)
+            @if(!empty($gitError))
+                <p class="text-sm text-red-600 dark:text-red-400 mt-1 font-medium">
+                    {{ __('statamic-stage::messages.git_error_title') }}
+                </p>
+                <p class="text-xs text-red-500 dark:text-red-400 mt-1">
+                    {{ __('statamic-stage::messages.git_error_message') }}
+                </p>
+            @elseif($hasPendingCommits)
                 <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
                     {{ trans_choice('statamic-stage::messages.pending_commits_count', $commitsCount, ['count' => $commitsCount]) }}
                 </p>

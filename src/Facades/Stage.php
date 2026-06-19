@@ -13,7 +13,9 @@ use Illuminate\Support\Facades\Facade;
  * @method static array getPendingCommits()
  * @method static bool hasPendingCommits()
  * @method static array getBranchDiff()
- * @method static void fetchRemote()
+ * @method static bool fetchRemote()
+ * @method static string|null getLastError()
+ * @method static bool hasError()
  *
  * @see \JoelSeneque\StatamicStage\Stage
  */
