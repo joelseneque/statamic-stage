@@ -397,11 +397,14 @@ class GitOperations
         $remote = config('statamic-stage.git.remote', 'origin');
 
         try {
-            // Get files that differ between production and staging
+            // Get files that differ between production and staging.
+            // Use a two-dot range (direct tip-to-tip comparison) rather than
+            // three-dot: three-dot needs a merge base, which doesn't exist on
+            // Forge's shallow clones ("fatal: ... no merge base").
             $output = $this->run([
                 $this->gitBinary, 'diff',
                 '--name-status',
-                "{$remote}/{$productionBranch}...{$remote}/{$stagingBranch}",
+                "{$remote}/{$productionBranch}..{$remote}/{$stagingBranch}",
             ]);
 
             $lines = collect(explode("\n", $output))->filter()->values();
